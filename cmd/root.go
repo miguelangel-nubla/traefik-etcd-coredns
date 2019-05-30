@@ -1,35 +1,40 @@
 package cmd
 
 import (
-	"os"
-	"time"
+	"fmt"
 	"log"
+	"os"
+	"strings"
+	"time"
 
 	"go.etcd.io/etcd/clientv3"
 
 	"google.golang.org/grpc/grpclog"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 const (
 	cliName        = "traefik-etcd-coredns"
 	cliDescription = "Traefik custom acme.dnsChallenge provider for CoreDNS servers with etcd backend"
 
-	defaultDialTimeout      = 2 * time.Second
-	defaultCommandTimeOut   = 5 * time.Second
+	defaultDialTimeout    = 2 * time.Second
+	defaultCommandTimeOut = 5 * time.Second
 )
+
+var client *clientv3.Client
 
 var (
 	rootCmd = &cobra.Command{
-		Use:        cliName,
-		Short:      cliDescription,
+		Use:   cliName,
+		Short: cliDescription,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-	      initClient()
-	    },
-	    PersistentPostRun: func(cmd *cobra.Command, args []string) {
-	      client.Close()
-	    },
+			initClient()
+		},
+		PersistentPostRun: func(cmd *cobra.Command, args []string) {
+			client.Close()
+		},
 	}
 )
 
@@ -52,17 +57,23 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&globalFlags.TLS.TrustedCAFile, "cacert", "", "verify certificates of TLS-enabled secure servers using this CA bundle")
 	rootCmd.PersistentFlags().StringVar(&globalFlags.User, "user", "", "username[:password] for authentication")
 	rootCmd.PersistentFlags().StringVar(&globalFlags.Password, "password", "", "password for authentication (if this option is used, --user option shouldn't include password)")
+
+	rootCmd.PersistentFlags().VisitAll(func(flag *pflag.Flag) {
+		env := strings.ToUpper(strings.Replace(cliName+"_"+flag.Name, "-", "_", -1))
+		flag.Usage = fmt.Sprintf("[env %v] %v", env, flag.Usage)
+		if value := os.Getenv(env); value != "" {
+			flag.Value.Set(value)
+		}
+	})
 }
 
 func Execute() {
-  if err := rootCmd.Execute(); err != nil {
-    //fmt.Println(err)
-    os.Exit(1)
-  }
-  os.Exit(0)
+	if err := rootCmd.Execute(); err != nil {
+		//fmt.Println(err)
+		os.Exit(1)
+	}
+	os.Exit(0)
 }
-
-var client *clientv3.Client
 
 func initClient() {
 	tlsConfig, err := globalFlags.TLS.ClientConfig()
@@ -73,8 +84,8 @@ func initClient() {
 	var config = clientv3.Config{
 		Endpoints:   globalFlags.Endpoints,
 		DialTimeout: globalFlags.DialTimeout,
-		Username: globalFlags.User,
-		Password: globalFlags.Password,
+		Username:    globalFlags.User,
+		Password:    globalFlags.Password,
 	}
 
 	if !globalFlags.InsecureTransport {

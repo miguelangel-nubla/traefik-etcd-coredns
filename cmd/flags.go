@@ -7,19 +7,19 @@ import (
 )
 
 type GlobalFlags struct {
-	CoreDNSPrefix			string
+	CoreDNSPrefix string
 
-	InsecureTransport		bool
-	Endpoints				[]string
-	DialTimeout				time.Duration
-	CommandTimeOut			time.Duration
+	InsecureTransport bool
+	Endpoints         []string
+	DialTimeout       time.Duration
+	CommandTimeOut    time.Duration
 
 	TLS transport.TLSInfo
 
-	User					string
-	Password				string
+	User     string
+	Password string
 
-	Debug					bool
+	Debug bool
 }
 
 var (
