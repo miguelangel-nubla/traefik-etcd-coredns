@@ -1,4 +1,5 @@
 # Binaries for programs and plugins
+traefik-etcd-coredns
 *.exe
 *.exe~
 *.dll
