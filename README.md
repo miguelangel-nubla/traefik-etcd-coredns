@@ -1,10 +1,10 @@
-## traefik-etcd-coredns
+# traefik-etcd-coredns
 
 DNS provider for [Traefik Let's Encrypt support](https://docs.traefik.io/configuration/acme/#provider) that enables the use of wildcard domains.
 Allows using a existing [CoreDNS with Etcd](https://coredns.io/plugins/etcd/) deployment to validate `DNS-01` challenges from [Let's Encrypt](https://letsencrypt.org/docs/challenge-types/#dns-01-challenge) and get the wildcard certificate issued and configured.
 
 
-## How to use
+# Quickstart
 
 * Build or download the binary:
  `curl -sL https://github.com/miguelangel-nubla/traefik-etcd-coredns/releases/latest/download/traefik-etcd-coredns_linux_amd64.tar.gz | tar zxvf - -C /path/to/`
