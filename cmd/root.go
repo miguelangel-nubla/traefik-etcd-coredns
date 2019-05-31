@@ -17,7 +17,7 @@ import (
 
 const (
 	cliName        = "traefik-etcd-coredns"
-	cliDescription = "Traefik custom acme.dnsChallenge provider for CoreDNS servers with etcd backend"
+	cliDescription = "Traefik custom acme.dnsChallenge provider for CoreDNS servers with Etcd backend."
 
 	defaultDialTimeout    = 2 * time.Second
 	defaultCommandTimeOut = 5 * time.Second
@@ -41,13 +41,10 @@ var (
 func init() {
 	log.SetPrefix("[" + cliName + "] ")
 
-	cobra.EnableCommandSorting = false
-	rootCmd.PersistentFlags().SortFlags = false
-
-	rootCmd.PersistentFlags().StringVar(&globalFlags.CoreDNSPrefix, "prefix", "/skydns", "etcd key prefix")
-
 	rootCmd.PersistentFlags().StringSliceVar(&globalFlags.Endpoints, "endpoints", []string{"127.0.0.1:2379"}, "gRPC endpoints")
 	rootCmd.PersistentFlags().BoolVar(&globalFlags.Debug, "debug", false, "enable client-side debug logging")
+
+	rootCmd.PersistentFlags().StringVar(&globalFlags.CoreDNSPrefix, "prefix", "/skydns", "etcd key prefix")
 
 	rootCmd.PersistentFlags().DurationVar(&globalFlags.DialTimeout, "dial-timeout", defaultDialTimeout, "dial timeout for client connections")
 	rootCmd.PersistentFlags().DurationVar(&globalFlags.CommandTimeOut, "command-timeout", defaultCommandTimeOut, "timeout for short running command (excluding dial timeout)")
@@ -67,6 +64,11 @@ func init() {
 			flag.Value.Set(value)
 		}
 	})
+
+	rootCmd.Flags().SortFlags = false
+	rootCmd.PersistentFlags().SortFlags = false
+
+	cobra.EnableCommandSorting = false
 }
 
 func Execute() {
