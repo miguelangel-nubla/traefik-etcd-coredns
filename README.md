@@ -7,7 +7,7 @@ Allows using a existing [CoreDNS with Etcd](https://coredns.io/plugins/etcd/) de
 ## How to use
 
 * Build or download the binary:
- `https://github.com/miguelangel-nubla/traefik-etcd-coredns/releases/latest/download/traefik-etcd-coredns_linux_amd64.tar.gz | tar zxvf - -C /path/to/`
+ `curl -sL https://github.com/miguelangel-nubla/traefik-etcd-coredns/releases/latest/download/traefik-etcd-coredns_linux_amd64.tar.gz | tar zxvf - -C /path/to/`
 
 * Add to your Traefik configuration file:
 ```
