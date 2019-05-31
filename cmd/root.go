@@ -39,6 +39,8 @@ var (
 )
 
 func init() {
+	log.SetPrefix("[" + cliName + "] ")
+
 	cobra.EnableCommandSorting = false
 	rootCmd.PersistentFlags().SortFlags = false
 
