@@ -16,6 +16,7 @@ var presentCmd = &cobra.Command{
 	Use:                   "present [acme-hostname] [TXT-record]",
 	Short:                 "Update the dns record",
 	Long:                  `Update ACME TXT record on the specified domain`,
+	DisableFlagParsing:    true,
 	DisableFlagsInUseLine: true,
 	Args:                  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {

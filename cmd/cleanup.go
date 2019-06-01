@@ -15,6 +15,7 @@ var cleanupCmd = &cobra.Command{
 	Use:                   "cleanup [acme-hostname] [TXT-record]",
 	Short:                 "Delete the dns record",
 	Long:                  `Delete ACME TXT record on the specified domain`,
+	DisableFlagParsing:    true,
 	DisableFlagsInUseLine: true,
 	Args:                  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
