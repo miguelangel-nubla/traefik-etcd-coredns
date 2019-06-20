@@ -33,12 +33,12 @@ var cleanupCmd = &cobra.Command{
 			return err
 		}
 
-		if len(configGlobal.UpdateDNSHost) > 0 {
-			r := spec.Record{
-				DNSName: strings.TrimPrefix(dnsName, ACMEChallengePrefix+"."),
-			}
-			return cli.Delete(r)
-		}
+		// if len(configGlobal.UpdateDNSHost) > 0 {
+		// 	r := spec.Record{
+		// 		DNSName: strings.TrimPrefix(dnsName, ACMEChallengePrefix+"."),
+		// 	}
+		// 	return cli.Delete(r)
+		// }
 
 		return nil
 	},
