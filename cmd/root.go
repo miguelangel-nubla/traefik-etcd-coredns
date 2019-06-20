@@ -7,13 +7,21 @@ import (
 	"strings"
 	"time"
 
-	"go.etcd.io/etcd/clientv3"
-
-	"google.golang.org/grpc/grpclog"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
+	"github.com/miguelangel-nubla/traefik-etcd-coredns/client/etcd"
+	"github.com/miguelangel-nubla/traefik-etcd-coredns/client/etcd/coredns"
+
+	"github.com/miguelangel-nubla/traefik-etcd-coredns/client/spec"
 )
+
+type Config struct {
+	Debug            bool
+	UpdateDNSHost    string
+	UpdateDNSHostTTL uint32
+	Backend          string
+}
 
 const (
 	cliName        = "traefik-etcd-coredns"
@@ -21,19 +29,35 @@ const (
 
 	defaultDialTimeout    = 2 * time.Second
 	defaultCommandTimeOut = 5 * time.Second
+
+	ACMEChallengePrefix = "_acme-challenge"
 )
 
-var client *clientv3.Client
+var configGlobal = Config{}
+var configEtcd = etcd.Config{}
+
+var coreDNS = &coredns.Client{
+	Client: etcd.Client{Config: &configEtcd},
+}
 
 var (
+	cli spec.Client
+
 	rootCmd = &cobra.Command{
 		Use:   cliName,
 		Short: cliDescription,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			initClient()
+			if configGlobal.Backend == "etcd-coredns" {
+				configEtcd.Debug = configGlobal.Debug
+				cli = coreDNS
+			} else {
+				log.Fatalf("Unknown backend %s", configGlobal.Backend)
+			}
+
+			cli.Init()
 		},
 		PersistentPostRun: func(cmd *cobra.Command, args []string) {
-			client.Close()
+			cli.Close()
 		},
 	}
 )
@@ -41,21 +65,27 @@ var (
 func init() {
 	log.SetPrefix("[" + cliName + "] ")
 
-	rootCmd.PersistentFlags().StringSliceVar(&globalFlags.Endpoints, "endpoints", []string{"127.0.0.1:2379"}, "gRPC endpoints")
-	rootCmd.PersistentFlags().BoolVar(&globalFlags.Debug, "debug", false, "enable client-side debug logging")
+	rootCmd.PersistentFlags().BoolVar(&configGlobal.Debug, "debug", false, "enable client-side debug logging")
 
-	rootCmd.PersistentFlags().StringVar(&globalFlags.CoreDNSPrefix, "prefix", "/skydns", "etcd key prefix")
+	rootCmd.PersistentFlags().StringVar(&configGlobal.UpdateDNSHost, "update-dns-host", "", "hostname or IP to also update A or CNAME DNS records")
+	rootCmd.PersistentFlags().Uint32Var(&configGlobal.UpdateDNSHostTTL, "update-dns-host-ttl", 60, "TTL for records created by --update-dns-host")
 
-	rootCmd.PersistentFlags().DurationVar(&globalFlags.DialTimeout, "dial-timeout", defaultDialTimeout, "dial timeout for client connections")
-	rootCmd.PersistentFlags().DurationVar(&globalFlags.CommandTimeOut, "command-timeout", defaultCommandTimeOut, "timeout for short running command (excluding dial timeout)")
+	rootCmd.PersistentFlags().StringVar(&configGlobal.Backend, "backend", "etcd-coredns", "select backend, currently only etcd-coredns available")
 
-	rootCmd.PersistentFlags().BoolVar(&globalFlags.InsecureTransport, "insecure-transport", true, "disable transport security for client connections")
-	rootCmd.PersistentFlags().BoolVar(&globalFlags.TLS.InsecureSkipVerify, "insecure-skip-tls-verify", false, "skip server certificate verification")
-	rootCmd.PersistentFlags().StringVar(&globalFlags.TLS.CertFile, "cert", "", "identify secure client using this TLS certificate file")
-	rootCmd.PersistentFlags().StringVar(&globalFlags.TLS.KeyFile, "key", "", "identify secure client using this TLS key file")
-	rootCmd.PersistentFlags().StringVar(&globalFlags.TLS.TrustedCAFile, "cacert", "", "verify certificates of TLS-enabled secure servers using this CA bundle")
-	rootCmd.PersistentFlags().StringVar(&globalFlags.User, "user", "", "username[:password] for authentication")
-	rootCmd.PersistentFlags().StringVar(&globalFlags.Password, "password", "", "password for authentication (if this option is used, --user option shouldn't include password)")
+	rootCmd.PersistentFlags().StringSliceVar(&configEtcd.Endpoints, "etcd-endpoints", []string{"127.0.0.1:2379"}, "gRPC endpoints")
+
+	rootCmd.PersistentFlags().DurationVar(&configEtcd.DialTimeout, "etcd-dial-timeout", defaultDialTimeout, "dial timeout for client connections")
+	rootCmd.PersistentFlags().DurationVar(&configEtcd.CommandTimeOut, "etcd-command-timeout", defaultCommandTimeOut, "timeout for short running command (excluding dial timeout)")
+
+	rootCmd.PersistentFlags().BoolVar(&configEtcd.InsecureTransport, "etcd-insecure-transport", true, "disable transport security for client connections")
+	rootCmd.PersistentFlags().BoolVar(&configEtcd.TLS.InsecureSkipVerify, "etcd-insecure-skip-tls-verify", false, "skip server certificate verification")
+	rootCmd.PersistentFlags().StringVar(&configEtcd.TLS.CertFile, "etcd-cert", "", "identify secure client using this TLS certificate file")
+	rootCmd.PersistentFlags().StringVar(&configEtcd.TLS.KeyFile, "etcd-key", "", "identify secure client using this TLS key file")
+	rootCmd.PersistentFlags().StringVar(&configEtcd.TLS.TrustedCAFile, "etcd-cacert", "", "verify certificates of TLS-enabled secure servers using this CA bundle")
+	rootCmd.PersistentFlags().StringVar(&configEtcd.User, "etcd-user", "", "username[:password] for authentication")
+	rootCmd.PersistentFlags().StringVar(&configEtcd.Password, "etcd-password", "", "password for authentication (if this option is used, --user option shouldn't include password)")
+
+	rootCmd.PersistentFlags().StringVar(&coreDNS.CoreDNSPrefix, "etcd-coredns-prefix", "/skydns", "etcd key prefix for coredns records")
 
 	rootCmd.PersistentFlags().VisitAll(func(flag *pflag.Flag) {
 		env := strings.ToUpper(strings.Replace(cliName+"_"+flag.Name, "-", "_", -1))
@@ -77,31 +107,4 @@ func Execute() {
 		os.Exit(1)
 	}
 	os.Exit(0)
-}
-
-func initClient() {
-	tlsConfig, err := globalFlags.TLS.ClientConfig()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var config = clientv3.Config{
-		Endpoints:   globalFlags.Endpoints,
-		DialTimeout: globalFlags.DialTimeout,
-		Username:    globalFlags.User,
-		Password:    globalFlags.Password,
-	}
-
-	if !globalFlags.InsecureTransport {
-		config.TLS = tlsConfig
-	}
-
-	if globalFlags.Debug {
-		clientv3.SetLogger(grpclog.NewLoggerV2(os.Stderr, os.Stderr, os.Stderr))
-	}
-
-	client, err = clientv3.New(config)
-	if err != nil {
-		log.Fatal(err)
-	}
 }

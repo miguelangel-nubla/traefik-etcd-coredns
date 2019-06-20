@@ -1,14 +1,17 @@
 package cmd
 
 import (
-	"context"
-	"encoding/json"
-	"log"
+	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/miguelangel-nubla/traefik-etcd-coredns/client/spec"
 )
 
 func init() {
+	presentCmd.Flags().SortFlags = false
+	presentCmd.Flags().SetInterspersed(false)
+
 	rootCmd.AddCommand(presentCmd)
 }
 
@@ -16,26 +19,32 @@ var presentCmd = &cobra.Command{
 	Use:                   "present [acme-hostname] [TXT-record]",
 	Short:                 "Update the dns record",
 	Long:                  `Update ACME TXT record on the specified domain`,
-	DisableFlagParsing:    true,
 	DisableFlagsInUseLine: true,
 	Args:                  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		j := &Service{
-			TTL:  30,
-			Text: args[1],
+		var dnsName = args[0]
+		var dnsTxt = args[1]
+
+		r := spec.Record{
+			DNSName: dnsName,
+			TTL:     30,
+			Text:    dnsTxt,
 		}
-		val, err := json.Marshal(j)
+
+		err := cli.Update(r)
 		if err != nil {
 			return err
 		}
 
-		var key = etcdKeyFor(args[0])
-		var value = string(val)
-		log.Println("etcd put", key, value)
+		if len(configGlobal.UpdateDNSHost) > 0 {
+			r := spec.Record{
+				DNSName: strings.TrimPrefix(dnsName, ACMEChallengePrefix+"."),
+				Host:    configGlobal.UpdateDNSHost,
+				TTL:     configGlobal.UpdateDNSHostTTL,
+			}
+			return cli.Update(r)
+		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), globalFlags.CommandTimeOut)
-		_, err = client.Put(ctx, key, value)
-		cancel()
-		return err
+		return nil
 	},
 }
